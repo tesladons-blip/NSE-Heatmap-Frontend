@@ -11,7 +11,7 @@ const CustomNode = (props) => {
   const {
     x, y, width, height, index, payload, colors, rank
   } = props;
-
+App.js
   // Calculate text position
   const textSize = Math.min(width, height) > 100 ? 14 : 10;
   const hasRoom = width > 80 && height > 60;
