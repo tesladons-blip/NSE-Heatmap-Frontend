@@ -1,18 +1,249 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="NSE Sector Heatmap - Real-time market visualization"
-    />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NSE Sector Heatmap</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-  </body>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .stat {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .stat-label {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .btn {
+            background: #2563eb;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn:hover {
+            background: #1d4ed8;
+        }
+        
+        .heatmap {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .sectors {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .sector {
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sector-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .sector-return {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .sector-stocks {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+        
+        .error {
+            background: #7f1d1d;
+            border: 1px solid #b91c1c;
+            border-radius: 8px;
+            padding: 12px;
+            color: #fecaca;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>NSE Sector Heatmap</h1>
+            <p id="timestamp">Fetching data...</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Sectors</div>
+                    <div class="stat-value" id="sectors">-</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Gainers</div>
+                    <div class="stat-value" style="color: #10b981;" id="gainers">-</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Losers</div>
+                    <div class="stat-value" style="color: #ef4444;" id="losers">-</div>
+                </div>
+                <div class="stat">
+                    <button class="btn" onclick="loadData()">Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div class="heatmap">
+            <h2>Market Sectors</h2>
+            <div id="loading" class="loading">Loading market data...</div>
+            <div id="sectors-container" class="sectors" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://nse-heatmap-backend-production.up.railway.app';
+        
+        function getColor(value) {
+            if (value > 2) return '#10b981';
+            if (value > 0.5) return '#6ee7b7';
+            if (value > -0.5) return '#9ca3af';
+            if (value > -2) return '#fca5a5';
+            return '#ef4444';
+        }
+        
+        async function loadData() {
+            const errorDiv = document.getElementById('error');
+            const loadingDiv = document.getElementById('loading');
+            const container = document.getElementById('sectors-container');
+            
+            errorDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            container.style.display = 'none';
+            
+            try {
+                console.log('Fetching from:', API_URL + '/api/heatmap');
+                const response = await fetch(API_URL + '/api/heatmap');
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                
+                const data = await response.json();
+                console.log('Data received:', data);
+                
+                const sectors = data.data || [];
+                
+                // Update stats
+                document.getElementById('sectors').textContent = sectors.length;
+                document.getElementById('gainers').textContent = sectors.filter(s => s.value > 0).length;
+                document.getElementById('losers').textContent = sectors.filter(s => s.value < 0).length;
+                document.getElementById('timestamp').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+                
+                // Render sectors
+                container.innerHTML = '';
+                sectors.forEach(sector => {
+                    const div = document.createElement('div');
+                    div.className = 'sector';
+                    div.style.backgroundColor = sector.color;
+                    div.style.opacity = '0.85';
+                    div.innerHTML = `
+                        <div class="sector-name">${sector.name}</div>
+                        <div class="sector-return">${sector.value > 0 ? '+' : ''}${sector.value}%</div>
+                        <div class="sector-stocks">${sector.stocks} stocks</div>
+                    `;
+                    container.appendChild(div);
+                });
+                
+                loadingDiv.style.display = 'none';
+                container.style.display = 'grid';
+                
+            } catch (err) {
+                console.error('Error:', err);
+                errorDiv.textContent = 'Error: ' + err.message + '. Backend might be sleeping.';
+                errorDiv.style.display = 'block';
+                loadingDiv.style.display = 'none';
+                
+                // Retry in 5 seconds
+                setTimeout(loadData, 5000);
+            }
+        }
+        
+        // Load on page load
+        window.onload = loadData;
+        
+        // Auto-refresh every 5 minutes
+        setInterval(loadData, 5 * 60 * 1000);
+    </script>
+</body>
 </html>
